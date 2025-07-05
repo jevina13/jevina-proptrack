@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { Property, PropertyFilters } from '@/types';
+// TODO: Replace mockData import with actual API service
 import { api } from '@/data/mockData';
+// TODO: Use this when backend is ready
+// import { propertiesAPI } from '@/services/api';
 
 interface PropertyStore {
   properties: Property[];
