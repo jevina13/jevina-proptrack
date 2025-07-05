@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PropertiesPage from "./pages/PropertiesPage";
 import PropertyDetailsPage from "./pages/PropertyDetailsPage";
 import DashboardHome from "./pages/dashboard/DashboardHome";
+import DashboardProperties from "./pages/dashboard/DashboardProperties";
+import DashboardInquiries from "./pages/dashboard/DashboardInquiries";
+import DashboardViewings from "./pages/dashboard/DashboardViewings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,12 +21,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<PropertiesPage />} />
+          <Route path="/properties" element={<PropertiesPage />} />
           <Route path="/properties/:id" element={<PropertyDetailsPage />} />
           <Route path="/dashboard" element={<DashboardHome />} />
-          {/* TODO: Add more dashboard routes */}
-          {/* <Route path="/dashboard/properties" element={<DashboardProperties />} /> */}
-          {/* <Route path="/dashboard/inquiries" element={<DashboardInquiries />} /> */}
-          {/* <Route path="/dashboard/viewings" element={<DashboardViewings />} /> */}
+          <Route path="/dashboard/properties" element={<DashboardProperties />} />
+          <Route path="/dashboard/inquiries" element={<DashboardInquiries />} />
+          <Route path="/dashboard/viewings" element={<DashboardViewings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
