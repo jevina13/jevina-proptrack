@@ -5,17 +5,28 @@ import { buildFilterQuery, paginateResults } from '../utils/paginate.js';
 export const getProperties = async (req, res) => {
   try {
     const { page = 1, limit = 10, ...filters } = req.query;
-    const query = buildFilterQuery(filters);
+    // const query = buildFilterQuery(filters);
     
-    const properties = await Property.find(query)
+    // const properties = await Property.find(query)
+    const properties = await Property.find()
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const total = await Property.countDocuments(query);
-    const pagination = paginateResults(page, limit, total);
+    // const total = await Property.countDocuments(query);
+    // const pagination = paginateResults(page, limit, total);
 
-    res.json({ properties, pagination });
+    // res.json({ properties, pagination });
+    const total = await Property.countDocuments();
+    const pagination = {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      pages: Math.ceil(total / limit)
+    };
+
+res.json({ properties, pagination });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
