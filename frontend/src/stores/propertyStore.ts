@@ -1,9 +1,8 @@
 import { create } from 'zustand';
 import { Property, PropertyFilters } from '@/types';
 // TODO: Replace mockData import with actual API service
-import { api } from '@/data/mockData';
-// TODO: Use this when backend is ready
-// import { propertiesAPI } from '@/services/api';
+// import { api } from '@/data/mockData'
+import { propertiesAPI } from '@/services/api';
 
 interface PropertyStore {
   properties: Property[];
@@ -50,63 +49,62 @@ export const usePropertyStore = create<PropertyStore>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const filters = get().filters;
-      const properties = await api.getProperties(filters) as Property[];
-      
-      // Apply client-side filtering for demo purposes
+  
+      const { properties } = await propertiesAPI.getAll(filters);
+ // ✅ destructure `data`
+      console.log('Fetched properties:', properties); // Debugging line to check fetched data
       let filteredProperties = properties;
-      
+
       if (filters.type !== 'all') {
         filteredProperties = filteredProperties.filter(p => p.type === filters.type);
       }
-      
+  
       if (filters.location) {
-        filteredProperties = filteredProperties.filter(p => 
+        filteredProperties = filteredProperties.filter(p =>
           p.location.city.toLowerCase().includes(filters.location.toLowerCase()) ||
           p.location.address.toLowerCase().includes(filters.location.toLowerCase())
         );
       }
-      
+  
       if (filters.bedrooms !== null) {
         filteredProperties = filteredProperties.filter(p => p.bedrooms >= filters.bedrooms!);
       }
-      
+  
       if (filters.bathrooms !== null) {
         filteredProperties = filteredProperties.filter(p => p.bathrooms >= filters.bathrooms!);
       }
-      
+  
       if (filters.minArea !== null) {
         filteredProperties = filteredProperties.filter(p => p.area >= filters.minArea!);
       }
-      
+  
       if (filters.maxArea !== null) {
         filteredProperties = filteredProperties.filter(p => p.area <= filters.maxArea!);
       }
-      
+  
       if (filters.amenities.length > 0) {
-        filteredProperties = filteredProperties.filter(p => 
+        filteredProperties = filteredProperties.filter(p =>
           filters.amenities.some(amenity => p.amenities.includes(amenity))
         );
       }
-      
-      // Price range filter
-      filteredProperties = filteredProperties.filter(p => 
+  
+      filteredProperties = filteredProperties.filter(p =>
         p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
       );
-      
-      set({ 
-        properties: filteredProperties, 
+      set({
+        properties: filteredProperties,
         loading: false,
-        totalPages: Math.ceil(filteredProperties.length / 12) // 12 properties per page
+        totalPages: Math.ceil(filteredProperties.length / 12)
       });
     } catch (error) {
       set({ error: 'Failed to fetch properties', loading: false });
     }
   },
-
+  
   fetchProperty: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      const property = await api.getProperty(id) as Property;
+      const property = await propertiesAPI.getById(id) as Property;
       set({ selectedProperty: property, loading: false });
     } catch (error) {
       set({ error: 'Failed to fetch property', loading: false });
@@ -116,7 +114,7 @@ export const usePropertyStore = create<PropertyStore>((set, get) => ({
   createProperty: async (property) => {
     set({ loading: true, error: null });
     try {
-      await api.createProperty(property);
+      await propertiesAPI.create(property);
       get().fetchProperties();
     } catch (error) {
       set({ error: 'Failed to create property', loading: false });
@@ -126,7 +124,7 @@ export const usePropertyStore = create<PropertyStore>((set, get) => ({
   updateProperty: async (id, property) => {
     set({ loading: true, error: null });
     try {
-      await api.updateProperty(id, property);
+      await propertiesAPI.update(id, property);
       get().fetchProperties();
     } catch (error) {
       set({ error: 'Failed to update property', loading: false });
@@ -136,7 +134,7 @@ export const usePropertyStore = create<PropertyStore>((set, get) => ({
   deleteProperty: async (id) => {
     set({ loading: true, error: null });
     try {
-      await api.deleteProperty(id);
+      await propertiesAPI.delete(id);
       get().fetchProperties();
     } catch (error) {
       set({ error: 'Failed to delete property', loading: false });

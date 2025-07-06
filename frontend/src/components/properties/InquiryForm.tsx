@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDashboardStore } from '@/stores/dashboardStore';
 // TODO: Use direct API call when backend is ready
-// import { inquiriesAPI } from '@/services/api';
+import { inquiriesAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

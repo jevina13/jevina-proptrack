@@ -19,7 +19,7 @@ export const PropertyCard = ({ property }: PropertyCardProps) => {
     <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
       <div className="relative overflow-hidden">
         <img
-          src={property.images[0]}
+          src={property.images[0] || '/placeholder.jpg'} // Fallback image if no images are available
           alt={property.title}
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
         />
@@ -77,7 +77,7 @@ export const PropertyCard = ({ property }: PropertyCardProps) => {
       
       <CardFooter className="p-4 pt-0">
         <Button asChild className="w-full">
-          <Link to={`/properties/${property.id}`}>
+          <Link to={`/properties/${property._id}`}>
             <Eye className="h-4 w-4 mr-2" />
             View Details
           </Link>

@@ -1,105 +1,160 @@
+import axios from 'axios';
+
 // ============================================
 // API SERVICE LAYER - BACKEND INTEGRATION
 // ============================================
-// TODO: Replace all mock implementations with actual backend calls
-// TODO: Set up axios or fetch with proper error handling
-// TODO: Add authentication headers and token management
-// TODO: Configure base URL from environment variables
-
-import { Property, Inquiry, Viewing, DashboardStats, PropertyFilters } from '@/types';
+import {
+  Property,
+  Inquiry,
+  Viewing,
+  DashboardStats,
+  PropertyFilters,
+  Activity,
+  PropertyPerformance,
+  User,
+  LoginResponse
+} from '@/types';
 
 // ============================================
 // BASE API CONFIGURATION
 // ============================================
-const API_BASE_URL = process.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
-// TODO: Configure axios instance
-// import axios from 'axios';
-// export const apiClient = axios.create({
-//   baseURL: API_BASE_URL,
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-// });
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000, // 10 seconds timeout
+});
 
-// TODO: Add request interceptor for auth tokens
-// apiClient.interceptors.request.use((config) => {
-//   const token = localStorage.getItem('authToken');
-//   if (token) {
-//     config.headers.Authorization = `Bearer ${token}`;
-//   }
-//   return config;
-// });
 
-// TODO: Add response interceptor for error handling
-// apiClient.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     if (error.response?.status === 401) {
-//       // Handle unauthorized - redirect to login
-//       window.location.href = '/login';
-//     }
-//     return Promise.reject(error);
-//   }
-// );
+// Auth interceptor
+apiClient.interceptors.request.use((config: AxiosRequestConfig) => {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
+// Error interceptor
+apiClient.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  (error: AxiosError) => {
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          // Redirect to login if unauthorized
+          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+          break;
+        case 403:
+          // Handle forbidden errors
+          console.error('Forbidden:', error.response.data);
+          break;
+        case 404:
+          // Handle not found errors
+          console.error('Not Found:', error.config?.url);
+          break;
+        case 500:
+          // Handle server errors
+          console.error('Server Error:', error.response.data);
+          break;
+        default:
+          console.error('API Error:', error.response.data);
+      }
+    } else if (error.request) {
+      console.error('Network Error:', 'No response received');
+    } else {
+      console.error('Request Error:', error.message);
+    }
+    
+    return Promise.reject(error);
+  }
+);
+// Complted till here = edit
 // ============================================
 // PROPERTIES API - Full CRUD Operations
 // ============================================
 
 export const propertiesAPI = {
-  // CREATE - Add new property
   create: async (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>): Promise<Property> => {
-    // TODO: POST /api/properties
-    // TODO: Handle file uploads for property images
-    // TODO: Validate property data on backend
-    // TODO: Return created property with generated ID
-    /*
-    const formData = new FormData();
-    formData.append('title', property.title);
-    formData.append('description', property.description);
-    formData.append('price', property.price.toString());
-    formData.append('type', property.type);
-    formData.append('location', JSON.stringify(property.location));
-    formData.append('bedrooms', property.bedrooms.toString());
-    formData.append('bathrooms', property.bathrooms.toString());
-    formData.append('area', property.area.toString());
-    formData.append('amenities', JSON.stringify(property.amenities));
-    property.images.forEach((image, index) => {
-      formData.append(`images`, image);
-    });
-    formData.append('agentId', property.agentId);
+    try {
+      const formData = new FormData();
+      Object.entries(property).forEach(([key, value]) => {
+        if (key === 'images') {
+          (value as File[]).forEach((image) => formData.append('images', image));
+        } else if (key === 'location') {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value as string | Blob);
+        }
+      });
 
-    const response = await fetch(`${API_BASE_URL}/properties`, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to create property');
+      const response = await apiClient.post<Property>('/properties', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      return handleAPIError(error);
     }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: POST /api/properties', property);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id: `prop_${Date.now()}`,
-          ...property,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as Property);
-      }, 1000);
-    });
   },
 
+  getAll: async (filters?: PropertyFilters): Promise<{ properties: Property[]; pagination: any }> => {
+    try {
+      const response = await apiClient.get('/properties', {
+        params: filters,
+        paramsSerializer: {
+          indexes: null,
+        },
+      });
+      return response.data;  // ✅ This is already { properties, pagination }
+    } catch (error) {
+      return handleAPIError(error);
+    }
+  },
+
+  getById: async (id: string): Promise<Property> => {
+    try {
+      const response = await apiClient.get<Property>(`/properties/${id}`);
+      return response.data;
+    } catch (error) {
+      return handleAPIError(error);
+    }
+  },
+
+  update: async (id: string, updates: Partial<Property>): Promise<Property> => {
+    try {
+      const response = await apiClient.patch<Property>(`/properties/${id}`, updates);
+      return response.data;
+    } catch (error) {
+      return handleAPIError(error);
+    }
+  },
+
+  delete: async (id: string): Promise<void> => {
+    try {
+      await apiClient.delete(`/properties/${id}`);
+    } catch (error) {
+      handleAPIError(error);
+    }
+  },
+
+  archive: async (id: string): Promise<Property> => {
+    try {
+        const response = await apiClient.patch<Property>(`/properties/${id}/archive`);
+        return response.data;
+      } catch (error) {
+        return handleAPIError(error);
+      }
+    },
+};
+
   // READ - Get all properties with filters
-  getAll: async (filters?: PropertyFilters): Promise<Property[]> => {
+  // getAll: async (filters?: PropertyFilters): Promise<Property[]> => {
     // TODO: GET /api/properties with query parameters
     // TODO: Implement server-side filtering, sorting, pagination
     // TODO: Add caching strategy
@@ -134,16 +189,16 @@ export const propertiesAPI = {
     return await response.json();
     */
     
-    console.log('API Call: GET /api/properties', filters);
-    // Mock implementation - replace with actual API call
-    const { mockProperties } = await import('@/data/mockData');
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(mockProperties), 500);
-    });
-  },
+    //   console.log('API Call: GET /api/properties', filters);
+    //   // Mock implementation - replace with actual API call
+    //   const { mockProperties } = await import('@/data/mockData');
+    //   return new Promise((resolve) => {
+    //     setTimeout(() => resolve(mockProperties), 500);
+    //   });
+    // },
 
   // READ - Get single property by ID
-  getById: async (id: string): Promise<Property> => {
+  // getById: async (id: string): Promise<Property> => {
     // TODO: GET /api/properties/:id
     // TODO: Handle 404 errors
     // TODO: Add related data (inquiries, viewings) if needed
@@ -164,22 +219,22 @@ export const propertiesAPI = {
     return await response.json();
     */
     
-    console.log('API Call: GET /api/properties/' + id);
-    const { mockProperties } = await import('@/data/mockData');
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const property = mockProperties.find(p => p.id === id);
-        if (property) {
-          resolve(property);
-        } else {
-          reject(new Error('Property not found'));
-        }
-      }, 500);
-    });
-  },
+    //   console.log('API Call: GET /api/properties/' + id);
+    //   const { mockProperties } = await import('@/data/mockData');
+    //   return new Promise((resolve, reject) => {
+    //     setTimeout(() => {
+    //       const property = mockProperties.find(p => p.id === id);
+    //       if (property) {
+    //         resolve(property);
+    //       } else {
+    //         reject(new Error('Property not found'));
+    //       }
+    //     }, 500);
+    //   });
+    // },
 
   // UPDATE - Update existing property
-  update: async (id: string, updates: Partial<Property>): Promise<Property> => {
+  // update: async (id: string, updates: Partial<Property>): Promise<Property> => {
     // TODO: PUT /api/properties/:id or PATCH /api/properties/:id
     // TODO: Handle partial updates
     // TODO: Validate permissions (only owner/agent can update)
@@ -200,20 +255,20 @@ export const propertiesAPI = {
     return await response.json();
     */
     
-    console.log('API Call: PATCH /api/properties/' + id, updates);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id,
-          ...updates,
-          updatedAt: new Date().toISOString(),
-        } as Property);
-      }, 1000);
-    });
-  },
+    // console.log('API Call: PATCH /api/properties/' + id, updates);
+    //   return new Promise((resolve) => {
+    //     setTimeout(() => {
+    //       resolve({
+    //         id,
+    //         ...updates,
+    //         updatedAt: new Date().toISOString(),
+    //       } as Property);
+    //     }, 1000);
+    //   });
+    // },
 
   // DELETE - Delete property (soft delete recommended)
-  delete: async (id: string): Promise<void> => {
+  // delete: async (id: string): Promise<void> => {
     // TODO: DELETE /api/properties/:id
     // TODO: Implement soft delete (set status to 'deleted')
     // TODO: Validate permissions
@@ -231,353 +286,200 @@ export const propertiesAPI = {
     }
     */
     
-    console.log('API Call: DELETE /api/properties/' + id);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(), 1000);
-    });
-  },
+    //   console.log('API Call: DELETE /api/properties/' + id);
+    //   return new Promise((resolve) => {
+    //     setTimeout(() => resolve(), 1000);
+    //   });
+    // },
 
   // ARCHIVE - Archive property (change status)
-  archive: async (id: string): Promise<Property> => {
-    // TODO: PATCH /api/properties/:id with status update
-    /*
-    const response = await fetch(`${API_BASE_URL}/properties/${id}/archive`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to archive property');
-    }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: PATCH /api/properties/' + id + '/archive');
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id,
-          status: 'archived',
-          updatedAt: new Date().toISOString(),
-        } as Property);
-      }, 1000);
-    });
-  }
-};
+    // archive: async (id: string): Promise<Property> => {
+      // TODO: PATCH /api/properties/:id with status update
+      /*
+        const response = await fetch(`${API_BASE_URL}/properties/${id}/archive`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${getAuthToken()}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to archive property');
+        }
+        
+        return await response.json();
+        */
+
+  //     console.log('API Call: PATCH /api/properties/' + id + '/archive');
+  //     return new Promise((resolve) => {
+  //       setTimeout(() => {
+  //         resolve({
+  //           id,
+  //           status: 'archived',
+  //           updatedAt: new Date().toISOString(),
+  //         } as Property);
+  //       }, 1000);
+  //     });
+  //   }
+// };
 
 // ============================================
 // INQUIRIES API - Full CRUD Operations
 // ============================================
-
+// TODOs : to wrap with try catch
 export const inquiriesAPI = {
-  // CREATE - Submit new inquiry
   create: async (inquiry: Omit<Inquiry, 'id' | 'createdAt'>): Promise<Inquiry> => {
-    // TODO: POST /api/inquiries
-    // TODO: Send notification email to agent
-    // TODO: Auto-create client if doesn't exist
-    /*
-    const response = await fetch(`${API_BASE_URL}/inquiries`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(inquiry)
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to create inquiry');
-    }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: POST /api/inquiries', inquiry);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id: `inq_${Date.now()}`,
-          ...inquiry,
-          createdAt: new Date().toISOString(),
-        } as Inquiry);
-      }, 1000);
-    });
+    const response = await apiClient.post('/inquiries', inquiry);
+    return response.data;
   },
 
-  // READ - Get all inquiries (agent dashboard)
   getAll: async (): Promise<Inquiry[]> => {
-    // TODO: GET /api/inquiries
-    // TODO: Filter by agent/user permissions
-    // TODO: Add pagination and sorting
-    /*
-    const response = await fetch(`${API_BASE_URL}/inquiries`, {
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch inquiries');
-    }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: GET /api/inquiries');
-    return new Promise((resolve) => {
-      setTimeout(() => resolve([]), 500);
-    });
+    const response = await apiClient.get('/inquiries');
+    return response.data;
   },
 
-  // UPDATE - Update inquiry status
   updateStatus: async (id: string, status: Inquiry['status']): Promise<Inquiry> => {
-    // TODO: PATCH /api/inquiries/:id
-    /*
-    const response = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify({ status })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update inquiry');
-    }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: PATCH /api/inquiries/' + id, { status });
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id,
-          status,
-        } as Inquiry);
-      }, 1000);
-    });
+    const response = await apiClient.patch(`/inquiries/${id}`, { status });
+    return response.data;
   },
 
-  // RESPOND - Send response to inquiry
   respond: async (id: string, response: string): Promise<void> => {
-    // TODO: POST /api/inquiries/:id/respond
-    // TODO: Send email to client
-    // TODO: Update inquiry status to 'contacted'
-    /*
-    const res = await fetch(`${API_BASE_URL}/inquiries/${id}/respond`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify({ response })
-    });
-    
-    if (!res.ok) {
-      throw new Error('Failed to send response');
-    }
-    */
-    
-    console.log('API Call: POST /api/inquiries/' + id + '/respond', { response });
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(), 1000);
-    });
-  }
+    await apiClient.post(`/inquiries/${id}/respond`, { response });
+  },
 };
 
 // ============================================
 // VIEWINGS API - Full CRUD Operations
 // ============================================
-
+// TODO : to wrap with try catch
 export const viewingsAPI = {
-  // CREATE - Schedule new viewing
   create: async (viewing: Omit<Viewing, 'id' | 'createdAt'>): Promise<Viewing> => {
-    // TODO: POST /api/viewings
-    // TODO: Check agent availability
-    // TODO: Send calendar invite to client and agent
-    // TODO: Validate property exists and is available
-    /*
-    const response = await fetch(`${API_BASE_URL}/viewings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify(viewing)
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to schedule viewing');
-    }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: POST /api/viewings', viewing);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id: `view_${Date.now()}`,
-          ...viewing,
-          createdAt: new Date().toISOString(),
-        } as Viewing);
-      }, 1000);
-    });
+    const response = await apiClient.post('/viewings', viewing);
+    return response.data;
   },
 
-  // READ - Get all viewings
   getAll: async (): Promise<Viewing[]> => {
-    // TODO: GET /api/viewings
-    // TODO: Filter by agent permissions
-    // TODO: Add date range filtering
-    /*
-    const response = await fetch(`${API_BASE_URL}/viewings`, {
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch viewings');
-    }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: GET /api/viewings');
-    return new Promise((resolve) => {
-      setTimeout(() => resolve([]), 500);
-    });
+    const response = await apiClient.get('/viewings');
+    return response.data;
   },
 
-  // UPDATE - Update viewing details/status
   update: async (id: string, updates: Partial<Viewing>): Promise<Viewing> => {
-    // TODO: PATCH /api/viewings/:id
-    // TODO: Send notifications on status changes
-    // TODO: Update calendar events
-    /*
-    const response = await fetch(`${API_BASE_URL}/viewings/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify(updates)
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update viewing');
-    }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: PATCH /api/viewings/' + id, updates);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id,
-          ...updates,
-        } as Viewing);
-      }, 1000);
-    });
+    const response = await apiClient.patch(`/viewings/${id}`, updates);
+    return response.data;
   },
 
-  // DELETE - Cancel viewing
   cancel: async (id: string, reason?: string): Promise<void> => {
-    // TODO: DELETE /api/viewings/:id or PATCH with cancelled status
-    // TODO: Notify all parties
-    // TODO: Update calendar
-    /*
-    const response = await fetch(`${API_BASE_URL}/viewings/${id}/cancel`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify({ reason })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to cancel viewing');
-    }
-    */
-    
-    console.log('API Call: PATCH /api/viewings/' + id + '/cancel', { reason });
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(), 1000);
-    });
-  }
+    await apiClient.patch(`/viewings/${id}/cancel`, { reason });
+  },
 };
-
 // ============================================
 // DASHBOARD API - Analytics & Stats
 // ============================================
-
+// TODO : to wrap with try catch
 export const dashboardAPI = {
-  // Get dashboard statistics
+  /**
+   * Get dashboard statistics and analytics
+   * @returns Promise<DashboardStats>
+   */
   getStats: async (): Promise<DashboardStats> => {
-    // TODO: GET /api/dashboard/stats
-    // TODO: Calculate real-time stats from database
-    // TODO: Cache for performance
-    /*
-    const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch dashboard stats');
+    try {
+      const response = await apiClient.get('/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      handleAPIError(error);
+      throw error; // Re-throw after handling
     }
-    
-    return await response.json();
-    */
-    
-    console.log('API Call: GET /api/dashboard/stats');
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          totalProperties: 0,
-          activeListings: 0,
-          totalInquiries: 0,
-          scheduledViewings: 0,
-          recentActivity: []
-        });
-      }, 500);
-    });
+  },
+
+  /**
+   * Get recent activity log
+   * @param limit Number of recent activities to fetch
+   * @returns Promise<Activity[]>
+   */
+  getRecentActivity: async (limit: number = 10): Promise<Activity[]> => {
+    try {
+      const response = await apiClient.get('/dashboard/activity', {
+        params: { limit }
+      });
+      return response.data;
+    } catch (error) {
+      handleAPIError(error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get property performance metrics
+   * @param timeframe '7d' | '30d' | '90d' | 'all'
+   * @returns Promise<PropertyPerformance>
+   */
+  getPropertyPerformance: async (
+    timeframe: '7d' | '30d' | '90d' | 'all' = '30d'
+  ): Promise<PropertyPerformance> => {
+    try {
+      const response = await apiClient.get('/dashboard/performance', {
+        params: { timeframe }
+      });
+      return response.data;
+    } catch (error) {
+      handleAPIError(error);
+      throw error;
+    }
   }
 };
 
 // ============================================
 // AUTHENTICATION API
 // ============================================
-
+// TODO : to wrap with try catch
 export const authAPI = {
-  // TODO: Implement authentication endpoints
-  login: async (email: string, password: string) => {
-    // TODO: POST /api/auth/login
-    console.log('API Call: POST /api/auth/login');
+  login: async (email: string, password: string): Promise<LoginResponse> => {
+    try {
+      const response = await apiClient.post<LoginResponse>('/auth/login', { email, password });
+      localStorage.setItem('authToken', response.data.token);
+      return response.data;
+    } catch (error) {
+      return handleAPIError(error);
+    }
   },
 
   logout: async () => {
-    // TODO: POST /api/auth/logout
-    console.log('API Call: POST /api/auth/logout');
+    try {
+      await apiClient.post('/auth/logout');
+      localStorage.removeItem('authToken');
+    } catch (error) {
+      handleAPIError(error);
+    }
   },
 
-  register: async (userData: any) => {
-    // TODO: POST /api/auth/register
-    console.log('API Call: POST /api/auth/register');
+  register: async (userData: Partial<User>): Promise<User> => {
+    try {
+      const response = await apiClient.post<User>('/auth/register', userData);
+      return response.data;
+    } catch (error) {
+      return handleAPIError(error);
+    }
   },
 
-  refreshToken: async () => {
-    // TODO: POST /api/auth/refresh
-    console.log('API Call: POST /api/auth/refresh');
-  }
+  refreshToken: async (): Promise<LoginResponse> => {
+    try {
+      const response = await apiClient.post<LoginResponse>('/auth/refresh-token');
+      localStorage.setItem('authToken', response.data.token);
+      return response.data;
+    } catch (error) {
+      localStorage.removeItem('authToken');
+      return handleAPIError(error);
+    }
+  },
+
+  getProfile: async (): Promise<User> => {
+    try {
+      const response = await apiClient.get<User>('/auth/profile');
+      return response.data;
+    } catch (error) {
+      return handleAPIError(error);
+    }
+  },
 };
 
 // ============================================
@@ -589,20 +491,46 @@ const getAuthToken = (): string | null => {
   return localStorage.getItem('authToken');
 };
 
-// TODO: Error handling utility
-export const handleAPIError = (error: any) => {
-  console.error('API Error:', error);
-  // TODO: Add proper error logging service
-  // TODO: Show user-friendly error messages
-  // TODO: Handle different error types
+export const handleAPIError = (error: unknown) => {
+  if (axios.isAxiosError(error)) {
+    const serverMessage = error.response?.data?.message;
+    const statusCode = error.response?.status;
+    const errorMessage = serverMessage || error.message;
+    
+    //SCOPE: You can integrate with your notification system here
+    console.error(`API Error [${statusCode}]:`, errorMessage);
+    
+    throw new Error(errorMessage);
+  }
 };
 
-// TODO: File upload utility
-export const uploadFiles = async (files: File[]): Promise<string[]> => {
-  // TODO: POST /api/upload
-  // TODO: Handle multiple file uploads
-  // TODO: Compress images
-  // TODO: Return uploaded file URLs
-  console.log('API Call: POST /api/upload', files);
-  return [];
+export const uploadFiles = async (files: File[], endpoint = '/upload'): Promise<string[]> => {
+  try {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+
+    const response = await apiClient.post<{ urls: string[] }>(endpoint, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    return response.data.urls;
+  } catch (error) {
+    return handleAPIError(error);
+  }
+};
+
+
+// ============================================
+// EXPORT ALL API SERVICES
+// ============================================
+
+export const API = {
+  properties: propertiesAPI,
+  inquiries: inquiriesAPI,
+  viewings: viewingsAPI,
+  dashboard: dashboardAPI,
+  auth: authAPI,
+  upload: uploadFiles,
 };

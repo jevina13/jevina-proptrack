@@ -1,4 +1,5 @@
 import { Property, Client, Inquiry, Viewing, Agent, DashboardStats } from '@/types';
+import { apiClient } from '@/services/api';
 
 // Mock Properties Data
 export const mockProperties: Property[] = [
@@ -214,95 +215,206 @@ export const mockDashboardStats: DashboardStats = {
 
 // API Placeholders - Replace with actual API calls when backend is ready
 export const api = {
-  // Properties
-  getProperties: async (filters?: any) => {
-    // TODO: Replace with actual API call to /api/properties
-    console.log('API Call: GET /api/properties', filters);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(mockProperties), 500);
-    });
+  // ============ PROPERTIES ============
+  getProperties: async (filters?: PropertyFilters): Promise<Property[]> => {
+    try {
+      const response = await apiClient.get('/properties', {
+        params: filters,
+        paramsSerializer: {
+          indexes: null, // Proper array serialization
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch properties:', error);
+      throw error;
+    }
   },
-  
-  getProperty: async (id: string) => {
-    // TODO: Replace with actual API call to /api/properties/:id
-    console.log('API Call: GET /api/properties/' + id);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(mockProperties.find(p => p.id === id)), 300);
-    });
+
+  getProperty: async (id: string): Promise<Property> => {
+    try {
+      const response = await apiClient.get(`/properties/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to fetch property ${id}:`, error);
+      throw error;
+    }
   },
-  
-  createProperty: async (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
-    // TODO: Replace with actual API call to POST /api/properties
-    console.log('API Call: POST /api/properties', property);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ ...property, id: Date.now().toString() }), 500);
-    });
+
+  createProperty: async (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>): Promise<Property> => {
+    try {
+      const formData = new FormData();
+      
+      // Append all property fields
+      Object.entries(property).forEach(([key, value]) => {
+        if (key === 'images') {
+          // Handle multiple image files
+          property.images.forEach((image) => {
+            formData.append('images', image);
+          });
+        } else if (key === 'location') {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value);
+        }
+      });
+
+      const response = await apiClient.post('/properties', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create property:', error);
+      throw error;
+    }
   },
-  
-  updateProperty: async (id: string, property: Partial<Property>) => {
-    // TODO: Replace with actual API call to PUT /api/properties/:id
-    console.log('API Call: PUT /api/properties/' + id, property);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ ...property, id }), 500);
-    });
+
+  updateProperty: async (id: string, updates: Partial<Property>): Promise<Property> => {
+    try {
+      const response = await apiClient.patch(`/properties/${id}`, updates);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to update property ${id}:`, error);
+      throw error;
+    }
   },
-  
-  deleteProperty: async (id: string) => {
-    // TODO: Replace with actual API call to DELETE /api/properties/:id
-    console.log('API Call: DELETE /api/properties/' + id);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(true), 300);
-    });
+
+  deleteProperty: async (id: string): Promise<void> => {
+    try {
+      await apiClient.delete(`/properties/${id}`);
+    } catch (error) {
+      console.error(`Failed to delete property ${id}:`, error);
+      throw error;
+    }
   },
-  
-  // Inquiries
-  createInquiry: async (inquiry: Omit<Inquiry, 'id' | 'createdAt'>) => {
-    // TODO: Replace with actual API call to POST /api/inquiries
-    console.log('API Call: POST /api/inquiries', inquiry);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ ...inquiry, id: Date.now().toString() }), 500);
-    });
+
+  // ============ INQUIRIES ============
+  createInquiry: async (inquiry: Omit<Inquiry, 'id' | 'createdAt'>): Promise<Inquiry> => {
+    try {
+      const response = await apiClient.post('/inquiries', inquiry);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create inquiry:', error);
+      throw error;
+    }
   },
-  
-  getInquiries: async () => {
-    // TODO: Replace with actual API call to GET /api/inquiries
-    console.log('API Call: GET /api/inquiries');
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(mockInquiries), 500);
-    });
+
+  getInquiries: async (): Promise<Inquiry[]> => {
+    try {
+      const response = await apiClient.get('/inquiries');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch inquiries:', error);
+      throw error;
+    }
   },
-  
-  // Viewings
-  createViewing: async (viewing: Omit<Viewing, 'id' | 'createdAt'>) => {
-    // TODO: Replace with actual API call to POST /api/viewings
-    console.log('API Call: POST /api/viewings', viewing);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ ...viewing, id: Date.now().toString() }), 500);
-    });
+
+  getPropertyInquiries: async (propertyId: string): Promise<Inquiry[]> => {
+    try {
+      const response = await apiClient.get(`/inquiries/property/${propertyId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to fetch inquiries for property ${propertyId}:`, error);
+      throw error;
+    }
   },
-  
-  getViewings: async () => {
-    // TODO: Replace with actual API call to GET /api/viewings
-    console.log('API Call: GET /api/viewings');
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(mockViewings), 500);
-    });
+
+  // ============ VIEWINGS ============
+  createViewing: async (viewing: Omit<Viewing, 'id' | 'createdAt'>): Promise<Viewing> => {
+    try {
+      const response = await apiClient.post('/viewings', viewing);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create viewing:', error);
+      throw error;
+    }
   },
-  
-  updateViewing: async (id: string, viewing: Partial<Viewing>) => {
-    // TODO: Replace with actual API call to PUT /api/viewings/:id
-    console.log('API Call: PUT /api/viewings/' + id, viewing);
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ ...viewing, id }), 500);
-    });
+
+  getViewings: async (): Promise<Viewing[]> => {
+    try {
+      const response = await apiClient.get('/viewings');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch viewings:', error);
+      throw error;
+    }
   },
-  
-  // Dashboard
-  getDashboardStats: async () => {
-    // TODO: Replace with actual API call to GET /api/dashboard/stats
-    console.log('API Call: GET /api/dashboard/stats');
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(mockDashboardStats), 500);
-    });
+
+  getAgentViewings: async (agentId: string): Promise<Viewing[]> => {
+    try {
+      const response = await apiClient.get(`/viewings/agent/${agentId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to fetch viewings for agent ${agentId}:`, error);
+      throw error;
+    }
+  },
+
+  updateViewing: async (id: string, updates: Partial<Viewing>): Promise<Viewing> => {
+    try {
+      const response = await apiClient.patch(`/viewings/${id}`, updates);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to update viewing ${id}:`, error);
+      throw error;
+    }
+  },
+
+  cancelViewing: async (id: string, reason?: string): Promise<void> => {
+    try {
+      await apiClient.patch(`/viewings/${id}/cancel`, { reason });
+    } catch (error) {
+      console.error(`Failed to cancel viewing ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // ============ DASHBOARD ============
+  getDashboardStats: async (): Promise<DashboardStats> => {
+    try {
+      const response = await apiClient.get('/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+      throw error;
+    }
+  },
+
+  getRecentActivity: async (limit: number = 10): Promise<Activity[]> => {
+    try {
+      const response = await apiClient.get('/dashboard/activity', {
+        params: { limit }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch recent activity:', error);
+      throw error;
+    }
+  },
+
+  getPropertyPerformance: async (
+    timeframe: '7d' | '30d' | '90d' | 'all' = '30d'
+  ): Promise<PropertyPerformance> => {
+    try {
+      const response = await apiClient.get('/dashboard/performance', {
+        params: { timeframe }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch property performance:', error);
+      throw error;
+    }
+  }
+};
+
+// Utility function for error handling
+export const handleAPIError = (error: unknown) => {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.message || error.message;
+    console.error('API Error:', message);
+    // You can add toast notifications here
+    throw new Error(message);
   }
 };

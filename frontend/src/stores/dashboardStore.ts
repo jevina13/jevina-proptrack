@@ -3,7 +3,7 @@ import { DashboardStats, Inquiry, Viewing } from '@/types';
 // TODO: Replace mockData import with actual API service
 import { api } from '@/data/mockData';
 // TODO: Use these when backend is ready
-// import { inquiriesAPI, viewingsAPI, dashboardAPI } from '@/services/api';
+import { inquiriesAPI, viewingsAPI, dashboardAPI } from '@/services/api';
 
 interface DashboardStore {
   stats: DashboardStats | null;
