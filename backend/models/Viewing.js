@@ -12,16 +12,20 @@ const viewingSchema = new mongoose.Schema(
       ref: 'Client', 
       required: true 
     },
-    date: { type: Date, required: true },
-    time: { type: String, required: true },
+    agentId: { 
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Agent'
+  },
+  scheduledDate: { type: Date, required: true },
+    
     status: { 
       type: String, 
       enum: ['scheduled', 'completed', 'no-show'], 
       default: 'scheduled' 
     },
-    notes: { type: String }
+    notes: { type: String },
+    createdAt: { type: Date, default: Date.now },
   },
-  { timestamps: true }
 );
 
 export default mongoose.model('Viewing', viewingSchema);
