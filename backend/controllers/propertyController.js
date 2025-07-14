@@ -1,4 +1,7 @@
 import Property from '../models/Property.js';
+import Inquiry from '../models/Inquiry.js';
+import mongoose from 'mongoose';
+
 import { buildFilterQuery, paginateResults } from '../utils/paginate.js';
 
 // Get paginated & filtered properties (Public)
@@ -35,21 +38,23 @@ res.json({ properties, pagination });
 export const getPropertyById = async (req, res) => {
     try {
       const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: 'Invalid property ID' });
+      }
+
+      const property = await Property.findById(id);
       
-      const property = await Property.findOne({ 
-        _id: id, 
-        isActive: true 
-      }).populate({
-        path: 'inquiries',
-        select: 'name email phone'
-      });
-  
       if (!property) {
         return res.status(404).json({ message: 'Property not found or not active' });
       }
-  
-      res.json(property);
+
+      const inquiries = await Inquiry.find({ propertyId: id }).select('message status createdAt clientId');
+
+      res.json({ property, inquiries });
+
     } catch (error) {
+      console.error('Error in getPropertyById:', error);
       res.status(500).json({ 
         message: 'Server error',
         error: error.message 

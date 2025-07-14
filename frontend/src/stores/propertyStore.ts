@@ -1,11 +1,10 @@
 import { create } from 'zustand';
 import { Property, PropertyFilters } from '@/types';
-// TODO: Replace mockData import with actual API service
-// import { api } from '@/data/mockData'
 import { propertiesAPI } from '@/services/api';
 
 interface PropertyStore {
   properties: Property[];
+  inquiries: Inquiry[];
   loading: boolean;
   error: string | null;
   filters: PropertyFilters;
@@ -44,68 +43,73 @@ export const usePropertyStore = create<PropertyStore>((set, get) => ({
   currentPage: 1,
   totalPages: 1,
   selectedProperty: null,
+  inquiries: [],
 
   fetchProperties: async () => {
-    set({ loading: true, error: null });
-    try {
-      const filters = get().filters;
-  
-      const { properties } = await propertiesAPI.getAll(filters);
- // ✅ destructure `data`
-      console.log('Fetched properties:', properties); // Debugging line to check fetched data
-      let filteredProperties = properties;
+      set({ loading: true, error: null });
+      try {
+        const filters = get().filters;
+    
+        const { properties } = await propertiesAPI.getAll(filters);
+        // ✅ destructure `data`
+        console.log('Fetched properties:', properties); // Debugging line to check fetched data
+        let filteredProperties = properties;
 
-      if (filters.type !== 'all') {
-        filteredProperties = filteredProperties.filter(p => p.type === filters.type);
-      }
-  
-      if (filters.location) {
+        if (filters.type !== 'all') {
+          filteredProperties = filteredProperties.filter(p => p.type === filters.type);
+        }
+    
+        if (filters.location) {
+          filteredProperties = filteredProperties.filter(p =>
+            p.location.city.toLowerCase().includes(filters.location.toLowerCase()) ||
+            p.location.address.toLowerCase().includes(filters.location.toLowerCase())
+          );
+        }
+    
+        if (filters.bedrooms !== null) {
+          filteredProperties = filteredProperties.filter(p => p.bedrooms >= filters.bedrooms!);
+        }
+    
+        if (filters.bathrooms !== null) {
+          filteredProperties = filteredProperties.filter(p => p.bathrooms >= filters.bathrooms!);
+        }
+    
+        if (filters.minArea !== null) {
+          filteredProperties = filteredProperties.filter(p => p.area >= filters.minArea!);
+        }
+    
+        if (filters.maxArea !== null) {
+          filteredProperties = filteredProperties.filter(p => p.area <= filters.maxArea!);
+        }
+    
+        if (filters.amenities.length > 0) {
+          filteredProperties = filteredProperties.filter(p =>
+            filters.amenities.some(amenity => p.amenities.includes(amenity))
+          );
+        }
+    
         filteredProperties = filteredProperties.filter(p =>
-          p.location.city.toLowerCase().includes(filters.location.toLowerCase()) ||
-          p.location.address.toLowerCase().includes(filters.location.toLowerCase())
+          p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
         );
+        set({
+          properties: filteredProperties,
+          loading: false,
+          totalPages: Math.ceil(filteredProperties.length / 12)
+        });
+      } catch (error) {
+        set({ error: 'Failed to fetch properties', loading: false });
       }
-  
-      if (filters.bedrooms !== null) {
-        filteredProperties = filteredProperties.filter(p => p.bedrooms >= filters.bedrooms!);
-      }
-  
-      if (filters.bathrooms !== null) {
-        filteredProperties = filteredProperties.filter(p => p.bathrooms >= filters.bathrooms!);
-      }
-  
-      if (filters.minArea !== null) {
-        filteredProperties = filteredProperties.filter(p => p.area >= filters.minArea!);
-      }
-  
-      if (filters.maxArea !== null) {
-        filteredProperties = filteredProperties.filter(p => p.area <= filters.maxArea!);
-      }
-  
-      if (filters.amenities.length > 0) {
-        filteredProperties = filteredProperties.filter(p =>
-          filters.amenities.some(amenity => p.amenities.includes(amenity))
-        );
-      }
-  
-      filteredProperties = filteredProperties.filter(p =>
-        p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
-      );
-      set({
-        properties: filteredProperties,
-        loading: false,
-        totalPages: Math.ceil(filteredProperties.length / 12)
-      });
-    } catch (error) {
-      set({ error: 'Failed to fetch properties', loading: false });
-    }
   },
   
   fetchProperty: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      const property = await propertiesAPI.getById(id) as Property;
-      set({ selectedProperty: property, loading: false });
+      const response = await propertiesAPI.getById(id);
+      set({
+        selectedProperty: response.property,
+        inquiries: response.inquiries,
+        loading: false
+      });
     } catch (error) {
       set({ error: 'Failed to fetch property', loading: false });
     }

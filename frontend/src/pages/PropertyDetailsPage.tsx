@@ -14,7 +14,7 @@ import { ArrowLeft, MapPin, Home, Calendar } from 'lucide-react';
 
 const PropertyDetailsPage = () => {
   const { id } = useParams();
-  const { selectedProperty, loading, error, fetchProperty, clearSelectedProperty } = usePropertyStore();
+  const { selectedProperty, inquiries, loading, error, fetchProperty, clearSelectedProperty } = usePropertyStore();
 
   useEffect(() => {
     if (id) {
@@ -48,6 +48,7 @@ const PropertyDetailsPage = () => {
       <Layout>
         <Alert variant="destructive">
           <AlertDescription>
+            {'Error fetching property :' || selectedProperty}
             {error || 'Property not found'}
           </AlertDescription>
         </Alert>
@@ -201,6 +202,36 @@ const PropertyDetailsPage = () => {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+            
+            {/* Inquiries */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Inquiries</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {inquiries.length > 0 ? (
+                  <div className="space-y-4">
+                    {inquiries.map((inquiry) => (
+                      <div key={inquiry._id} className="border rounded p-3">
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Message:</strong> {inquiry.message}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Status:</strong> {inquiry.status}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Created At:</strong> {new Date(inquiry.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No inquiries for this property yet.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
